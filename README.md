@@ -2,5 +2,7 @@
  - [X] leitura dos fastasalinhados
  - [X] Contagem dos SNPs
  - [X] Gráficos para análise das posições dos SNPs
- - [ ] Ler PDBs
+ - [X] Ler PDBs
+     - [X] Converter lista de PDBs em nós
+     - [X] Converter lista de amostras em nós
  - [ ] Alinhar PDBs com sequencias das amostras

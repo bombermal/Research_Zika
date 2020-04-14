@@ -6,7 +6,6 @@ from IPython import get_ipython
 import Codes.read as rd
 import Codes.function as fc
 import Codes.graph as gf
-import Codes.node as nd
 #%% Reading files
 
 #Leio o arquivo alinhado
@@ -48,7 +47,6 @@ for ii in conditions:
 gf.list_plots(conditions, list_of_filtered_dfs, "Zika_454_29-10-19", 50)
 
 #%% Ler PDBs
-get_ipython().magic("time")
 
 # Read PDB's
 pdbsNames = [ "5GS6", "5K6K", "5IY3", "5JMT", "5TMH"]
@@ -61,24 +59,23 @@ pdbsNames = [ "5GS6", "5K6K", "5IY3", "5JMT", "5TMH"]
 pdbsNodesFiles = rd.readPDBs(pdbsNames)
 pdbsEdgesFiles = rd.readPDBs(pdbsNames, "edges")
 
+#%% Transformar sequencias em nós
 #Dividir PDBs em listas de listas
 pdbs_dict_list = fc.prepare_PDBs(pdbsNodesFiles)
-#transformar elmentos das listas em nós
-def nodeIds_to_node(id):
-    splited_Id = id[0].split(":")
-    degree = id[1]
-    ### Falta converter codigo codon de 3 para 1
-    return nd.node(splited_Id[3], degree, id[0], splited_Id[1], 0)
 
-def list_of_nodeIds(sub_list):
-    sub_list = list(map(nodeIds_to_node, sub_list))
-    return sub_list
+#Dicinário de PDBs com listas de cadeias e nós
+pdbs_dict_node_list = fc.dicts_of_pdbs(pdbs_dict_list)
+#Lista de amostras em forma de nós
+samples_node_list = fc.df_to_node_list(raw_df_aln)
 
-def dicts_of_pdbs(pdbs_dict):
-    for key, pdb in pdbs_dict.items():
-        pdbs_dict[key] = list(map(list_of_nodeIds, pdb))
-        
-    return pdbs_dict
+get_ipython().magic("time")
+#%% Alinhar
+import Codes.smithWaterman as sw
 
-pdbs_dict_node_list = dicts_of_pdbs(pdbs_dict_list)
-                   
+sample_pdb = {"5GS6": pdbs_dict_node_list["5GS6"]}
+sample_samples = samples_node_list[:10]
+
+obj = sw.smithWaterman()
+seqIds, seqPos, cut = obj.constructor(2, -1, -1, sample_samples[0], sample_pdb["5GS6"][0], True, False)
+
+
