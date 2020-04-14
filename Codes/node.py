@@ -5,9 +5,6 @@ Created on Tue Dec  5 17:37:26 2017
 @author: Ivan Alisson Cavalcante Nunes de Lima
 """
 
-def make_node(row):
-    return 1
-
 class node:
     """
         Class tha stores each string in a node, with a character, a index before alignment and a index after the alignment

@@ -1,27 +1,54 @@
-# -*- coding: utf-8 -*-
-##Imports
+# Imports
 import pandas as pd
-import readFiles as rd
-import processFunctions as fc
-import workFlow as wf
-import graph as gr
+from IPython import get_ipython
 
-#%% Prepare work.
-#%%time
-#Read files
-filesPaths = { "Zika" : "read/Zika Full 454 29-10-19.aln", "Dengue" : "read/Dengue Full 4827 29-10-19.aln"}
-file = rd.fileRead(filesPaths["Zika"], "clustal")
+# My imports
+import Codes.read as rd
+import Codes.function as fc
+import Codes.graph as gf
+import Codes.node as nd
+#%% Reading files
 
-#Convert file to a DataFrame
-baseDf = rd.genomeClustalToDf(["Organism", "SeqId", "Seq", "Len"], file, "Zika")
+#Leio o arquivo alinhado
+path = "read/"
+name = "Zika Full 454 29-10-19.fasta"
+raw_aln_zika = rd.read_aligned_files(path, name)
+#Converto alinhado para um DF
+raw_df_aln = rd.seq_to_df(raw_aln_zika)
 
-#Create Dataframes
-sequencesTable = fc.createDfForCount(baseDf)
-snpsCountDf = fc.makeDfForPolimorphismsCount(sequencesTable)
+#%%
 
-#Select poliorphic positions
-snpsDf = snpsCountDf[snpsCountDf["Cons/Poli"] == "P"]
-poliPositionsList = snpsDf.index.tolist() 
+
+def read_Or_create(raw_df_aln, read=True):
+    if read:
+        #lê salvo
+        counted_df = pd.read_csv("Saved/1_Counting_df_zika_454_29-10-19.csv")
+    else:
+        #Df vazio
+        counted_df = pd.DataFrame()
+        #função que faz a transposta de Seq e conta as ocorrencias
+        fc.transpose_seq_and_count(raw_df_aln.Seq, counted_df)
+        #Limpa os Nan e corrige a Pos
+        counted_df = counted_df.fillna(0).reset_index().rename(columns={"index" : "Pos"})
+        counted_df.Pos = counted_df.Pos.apply(lambda x: x+1)
+        #Salva o trabalho
+        counted_df.to_csv("Saved/1_Counting_df_zika_454_29-10-19.csv", index=False)
+    
+    return counted_df
+        
+counted_df= read_Or_create(raw_df_aln)
+#%% Ploting
+
+conditions = [.5,1,2]
+list_of_filtered_dfs = []
+
+for ii in conditions:
+  list_of_filtered_dfs.append(fc.filter_criteria(counted_df, len(raw_aln_zika), ii))
+  
+gf.list_plots(conditions, list_of_filtered_dfs, "Zika_454_29-10-19", 50)
+
+#%% Ler PDBs
+get_ipython().magic("time")
 
 # Read PDB's
 pdbsNames = [ "5GS6", "5K6K", "5IY3", "5JMT", "5TMH"]
@@ -34,58 +61,24 @@ pdbsNames = [ "5GS6", "5K6K", "5IY3", "5JMT", "5TMH"]
 pdbsNodesFiles = rd.readPDBs(pdbsNames)
 pdbsEdgesFiles = rd.readPDBs(pdbsNames, "edges")
 
-#Split das amostras e PDB
-    
-samplesList = fc.splitSmapleDataFrame(baseDf) 
-pdbsList = fc.splitPdbsDict(pdbsNodesFiles)
+#Dividir PDBs em listas de listas
+pdbs_dict_list = fc.prepare_PDBs(pdbsNodesFiles)
+#transformar elmentos das listas em nós
+def nodeIds_to_node(id):
+    splited_Id = id[0].split(":")
+    degree = id[1]
+    ### Falta converter codigo codon de 3 para 1
+    return nd.node(splited_Id[3], degree, id[0], splited_Id[1], 0)
 
-#%% Alinhamento
-#%%time
+def list_of_nodeIds(sub_list):
+    sub_list = list(map(nodeIds_to_node, sub_list))
+    return sub_list
 
-def readOrWork(option="Read"):
-    if option == "Work":
-        obj = wf.workFlow(pdbsList, samplesList)
-        obj.getResults().to_csv("read/alignedDataFrame.csv", sep="\t", index=False)
-    #Lê
-    alignedDf = pd.read_csv("read/alignedDataFrame.csv", sep="\t")
+def dicts_of_pdbs(pdbs_dict):
+    for key, pdb in pdbs_dict.items():
+        pdbs_dict[key] = list(map(list_of_nodeIds, pdb))
+        
+    return pdbs_dict
 
-    return alignedDf
-
-alignedDf = readOrWork()
-
-#%%
-#%%time
-minMaxPoitionsPerPdb = fc.listMinMaxTuple(pdbsNames, alignedDf)
-poliPositionsDict = fc.convertPositionStringToInt(poliPositionsList, minMaxPoitionsPerPdb)    
-aminoacidsOccurrencesDict = fc.totalAminoCountingPerPositions(poliPositionsDict, alignedDf)
-
-#%% Plot cobertura
-"""
-Plot cover distribution
-"""
-
-condition = True
-gr.plotCoverRange(alignedDf, condition)
-
-#Show PDBs degrees distribution
-
-for name in pdbsNames:
-    """
-     True = Save figures
-     False = Don't save
-    """
-    title = "Overview of degrees distribution: "
-    gr.plotDegreeDistribution(title, name, pdbsNodesFiles[name], condition)
-   
-gr.plotPolimorphismsDistribution(aminoacidsOccurrencesDict, pdbsNodesFiles, condition)
-
-#%% New Approach
-
-#Print PDBS sequences
-#For blast
-#fc.printSequencesForDebug(pdbsList)
-
-def saveCSV(path, df):
-    df.to_csv(path, sep="\t", index=False)      
-
-#saveCSV("Df Polimorfismos anotados.csv", snpsDf)
+pdbs_dict_node_list = dicts_of_pdbs(pdbs_dict_list)
+                   
