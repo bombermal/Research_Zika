@@ -1,10 +1,10 @@
 from tqdm import tqdm
-import pandas as pd
 import numpy as np
 from collections import Counter
-from Bio.SeqUtils import seq3, seq1
+from Bio.SeqUtils import seq1
 #MyImports
 import Codes.node as nd
+import Codes.smithWaterman as sw
 
 def percentage_to_quantity(total, prc):
     """
@@ -77,8 +77,8 @@ def transpose_seq_and_count(column, counted_df):
             
 def prepare_PDBs(pdbs_dict):
     """
-    Recebe dicionário com pdbs no formato de DataFrame e retorna um dicionário
-    com uma lista de listas, cada lista contém od pdbs divididos em cadeia
+    Recebe dicionário com pdbs no formato de DataFrame e retorna uma lista
+    de tuplas, com o nome do PDB e uma lista com os os ids dos nós 
 
     Parameters
     ----------
@@ -87,20 +87,18 @@ def prepare_PDBs(pdbs_dict):
 
     Returns
     -------
-    result : Dict
-        dicionário de listas de listas
+    result : list
+        lista de tuplas -> [(name, [node1, node2,...]), (name, [node1, node2,...])]
 
     """
-    result = {}
-    for key, value in pdbs_dict.items():
+    result = []
+    for key, df in pdbs_dict.items():
         #divide o df por cadeias
-        temp_chain_list = value.Chain.unique().tolist()
-        aux = []
-        for chain in temp_chain_list:
+        chains_on_df = df.Chain.unique().tolist()
+        for chain in chains_on_df:
             #filtra cadeias e salva em lista
-            filtered_df = value[value.Chain == chain]
-            aux.append(list(zip(filtered_df.NodeId, filtered_df.Degree)))
-        result[key] = aux
+            filtered_df = df[df.Chain == chain]
+            result.append((key, list(zip(filtered_df.NodeId, filtered_df.Degree))))
         
     return result
 
@@ -123,13 +121,13 @@ def nodeIds_to_node(id):
     degree = id[1]
     return nd.node(seq1(splited_Id[3]), degree, id[0], splited_Id[1], 0)
 
-def list_of_nodeIds(sub_list):
+def list_of_nodeIds(tuple_list):
     """
     Chama map para elementos da sublista
 
     Parameters
     ----------
-    sub_list : list
+    tuple_list : list
         lista de tuplas, NodeId e Degree
 
     Returns
@@ -138,30 +136,26 @@ def list_of_nodeIds(sub_list):
         lista de Nodes -> nodes.py
 
     """
-    sub_list = list(map(nodeIds_to_node, sub_list))
-    return sub_list
+    return list(map(nodeIds_to_node, tuple_list[1]))
 
-def dicts_of_pdbs(pdbs_dict):
+def pdbs_ids_to_nodes(tuple_list):
     """
     Chama map para lista de listas
 
     Parameters
     ----------
-    pdbs_dict : Dict
-        Dicionário de listas
-        key: PDB name
-        value: lista de listas
+    tuple_list : list
+        listas de tuplas
+        0: PDB name
+        1: lista de NodeIds
 
     Returns
     -------
-    pdbs_dict : Dict
-        Dicionário de listas de listas de Nodes
+    pdbs_dict : list
+        lista de tuplas -> [(NodeId, [nodes list]),(NodeId,...]
 
     """
-    for key, pdb in pdbs_dict.items():
-        pdbs_dict[key] = list(map(list_of_nodeIds, pdb))
-        
-    return pdbs_dict
+    return [(tp[0], list_of_nodeIds(tp)) for tp in tuple_list]
 
 
 def sample_tuple_to_nodes(tuple):
@@ -205,3 +199,30 @@ def df_to_node_list(df):
 
     """
     return list(map(sample_to_tuple_to_nodes, list(zip(df.Seq, df.Name))))
+
+def one_step(sample, pdb_chain):
+    """
+    Alinha duas sequencias.
+
+    Parameters
+    ----------
+    sample : list
+        lista de nós da sequencia da amostra
+    pdb_chain : list
+        lista de nós da sequencia do PDB
+
+    Returns
+    -------
+    seqIds : list
+        Lista dos ids do pdb
+    seqPos : list
+        lista das posições da amosta que alinhou contra o pdb
+    cut : int
+        Volor de cobertura o alinhamento
+
+    """
+    #print(len(pdb_chain), type(pdb_chain), pdb_chain)
+    obj = sw.smithWaterman()
+    seqIds, seqPos, cover = obj.constructor(2, -1, -1, sample, pdb_chain, True, False)
+    
+    return ",".join(seqIds), ",".join(seqPos), cover

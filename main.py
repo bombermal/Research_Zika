@@ -1,6 +1,6 @@
 # Imports
 import pandas as pd
-from IPython import get_ipython
+from tqdm import tqdm
 
 # My imports
 import Codes.read as rd
@@ -61,21 +61,71 @@ pdbsEdgesFiles = rd.readPDBs(pdbsNames, "edges")
 
 #%% Transformar sequencias em nós
 #Dividir PDBs em listas de listas
-pdbs_dict_list = fc.prepare_PDBs(pdbsNodesFiles)
-
+pdbs_tuple_list = fc.prepare_PDBs(pdbsNodesFiles)
 #Dicinário de PDBs com listas de cadeias e nós
-pdbs_dict_node_list = fc.dicts_of_pdbs(pdbs_dict_list)
+pdbs_list_of_tuples = fc.pdbs_ids_to_nodes(pdbs_tuple_list)
 #Lista de amostras em forma de nós
 samples_node_list = fc.df_to_node_list(raw_df_aln)
 
-get_ipython().magic("time")
 #%% Alinhar
-import Codes.smithWaterman as sw
+
+import time
+
+start = time.time()
 
 sample_pdb = {"5GS6": pdbs_dict_node_list["5GS6"]}
 sample_samples = samples_node_list[:10]
 
-obj = sw.smithWaterman()
-seqIds, seqPos, cut = obj.constructor(2, -1, -1, sample_samples[0], sample_pdb["5GS6"][0], True, False)
+#Uma execução
+# obj = sw.smithWaterman()
+# seqIds, seqPos, cut = obj.constructor(2, -1, -1, sample_samples[0], sample_pdb["5GS6"][0], False, False)
+#Salvar resultados em uma tabela?
 
+#jeito burro 26.27 sec
+# for sample in tqdm(sample_samples):
+#     for key, pdb in sample_pdb.items():
+#         for chain in pdb:
+#             obj = sw.smithWaterman()
+#             seqIds, seqPos, cut = obj.constructor(2, -1, -1, sample, chain, False, False)
 
+#novo jeito
+#4.29 sec
+class pre_align:
+    seq =        None
+    pdb_dict =   None
+    result_df =  None
+    
+    def __init__(self, sample, pdb_seq_list, columns):
+        self.seq = sample
+        self.pdb_dict = pdb_dict
+        self.result_df = pd.DataFrame(columns=columns)
+        
+def loop_over_pdb_dict(sample, pdb_dict):
+    result = []
+    for key, pdb in pdb_dict.items():
+        for chain in pdb:
+            result = one_step(sample, chain)
+        
+    return sample
+    
+
+def flat_pdb_dict(pdb_dict):
+    result = []
+    for key, pdb in pdb_dict.items():
+        for chain in pdb:
+            result.append(chain)
+    return result
+
+#Consertar lógica da da função alinhar                
+  
+#Pool 168 sec
+pdb_aligned_result = alinhar(sample_samples, sample_pdb, True)
+
+# print(sample_pdb["5GS6"][0][2].getAll())        
+    
+end = time.time()
+print(end - start, "sec")
+#%%Salvar resultado em um pdb
+
+for key, value in pdb_aligned_result.items():
+    
