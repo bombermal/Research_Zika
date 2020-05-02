@@ -1,4 +1,4 @@
-# Imports
+#%% Imports
 import pandas as pd
 from tqdm import tqdm
 
@@ -73,9 +73,6 @@ import time
 
 start = time.time()
 
-sample_pdb = {"5GS6": pdbs_dict_node_list["5GS6"]}
-sample_samples = samples_node_list[:10]
-
 #Uma execução
 # obj = sw.smithWaterman()
 # seqIds, seqPos, cut = obj.constructor(2, -1, -1, sample_samples[0], sample_pdb["5GS6"][0], False, False)
@@ -92,34 +89,37 @@ sample_samples = samples_node_list[:10]
 #4.29 sec
 class pre_align:
     seq =        None
-    pdb_dict =   None
+    pdb_seq_list =   None
     result_df =  None
     
     def __init__(self, sample, pdb_seq_list, columns):
         self.seq = sample
-        self.pdb_dict = pdb_dict
+        self.pdb_seq_list = pdb_seq_list
         self.result_df = pd.DataFrame(columns=columns)
         
-def loop_over_pdb_dict(sample, pdb_dict):
+def create_pre_process_obj(samples, pdbs, columns):
     result = []
-    for key, pdb in pdb_dict.items():
-        for chain in pdb:
-            result = one_step(sample, chain)
-        
-    return sample
+    for ii in samples:
+        result.append(pre_align(ii, pdbs, columns))
     
-
-def flat_pdb_dict(pdb_dict):
-    result = []
-    for key, pdb in pdb_dict.items():
-        for chain in pdb:
-            result.append(chain)
     return result
+### Revisar, talvez precise de multiprocessing mesmo
+def map_align(obj):
+    pdb = obj.pdb_seq_list
+    df = obj.result_df
+    seq = obj.seq
+    temp = []
+    for pd in pdb:
+        temp.append(list(map(fc.one_step, seq, pd[1])))
+        
+    return temp
 
 #Consertar lógica da da função alinhar                
-  
+columns = ["SampleId", "PDBId", "Chain", "PDBSeq", "SampleSeq", "Cover"]
+temp = create_pre_process_obj(samples_node_list[:2], pdbs_list_of_tuples, columns)
+temp = map_align(temp[0])
+#fc.one_step(samples_node_list[0], pdbs_list_of_tuples[0][1])
 #Pool 168 sec
-pdb_aligned_result = alinhar(sample_samples, sample_pdb, True)
 
 # print(sample_pdb["5GS6"][0][2].getAll())        
     
