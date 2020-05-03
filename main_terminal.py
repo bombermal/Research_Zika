@@ -57,8 +57,8 @@ def flow():
 	args = parser.parse_args()
 
 	#Criar
-	raw_aln_zika = read_files(args.path)
-	counted_df = read_Or_create(raw_aln_zika, False)
+	raw_df_aln = read_files(args.path)
+	counted_df = read_Or_create(raw_df_aln, False)
 	#Plotar 
 	conditions = args.filtro
 	list_of_filtered_dfs = []
